@@ -1,4 +1,6 @@
-# Codex Computer Use and Browser Plugin Repair
+# 针对非美国用户Codex不显示Computer Use 和 Chrome插件的修复 Codex Computer Use and Browser Plugin Repair
+
+如有问题 For any further questions - K1riko@outlook.com
 
 A small Windows GUI repair tool for Codex Desktop users whose **Computer Use** or browser-control plugin disappeared, became unavailable, or stopped connecting after local cache/native-host issues.
 
