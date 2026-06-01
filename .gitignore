@@ -1,0 +1,9 @@
+*.log
+*.tmp
+*.bak
+*.zip
+*.exe
+outputs/
+work/
+.codex/
+backups/
