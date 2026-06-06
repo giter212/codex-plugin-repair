@@ -305,6 +305,23 @@ function Test-CodexOrChromeRunning {
   return $running
 }
 
+function Remove-StagingFolders {
+  $details = New-Object System.Collections.Generic.List[string]
+  $marketplacesTmp = Join-Path $script:CodexRoot '.tmp\bundled-marketplaces'
+  if (Test-Dir $marketplacesTmp) {
+    $stagedFolders = Get-ChildItem -LiteralPath $marketplacesTmp -Directory -Filter "staging-*" -ErrorAction SilentlyContinue
+    foreach ($folder in $stagedFolders) {
+      try {
+        Remove-Item -LiteralPath $folder.FullName -Recurse -Force -ErrorAction Stop
+        $details.Add("已清理残留部署目录：$($folder.Name)")
+      } catch {
+        $details.Add("清理残留部署目录失败：$($folder.Name) - $($_.Exception.Message)")
+      }
+    }
+  }
+  return $details
+}
+
 function Move-CodexPluginCacheToBackup {
   $resolvedCodex = (Resolve-Path -LiteralPath $script:CodexRoot).Path
   $backupRoot = Join-Path $script:CodexRoot ('backups\plugin-cache-refresh-gui-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -350,13 +367,17 @@ function Invoke-Repair {
 
   $stopped = Stop-ExtensionHost
   $moved = Move-CodexPluginCacheToBackup
+  $cleaned = Remove-StagingFolders
   $summary = New-Object System.Collections.Generic.List[string]
   if ($stopped.Count -gt 0) {
     $summary.Add('已停止 extension-host：')
     $stopped | ForEach-Object { $summary.Add("  $_") }
   }
-  $summary.Add('已移动插件缓存，Codex 下次启动会重新生成：')
+  $summary.Add('已处理缓存目录（Codex 下次启动会重新生成）：')
   $moved | ForEach-Object { $summary.Add("  $_") }
+  if ($cleaned.Count -gt 0) {
+    $cleaned | ForEach-Object { $summary.Add("  $_") }
+  }
   $summary.Add('')
   $summary.Add('下一步：重新打开 Codex，然后回到 Plugins/Computer Use 页面检查。')
   return ($summary -join "`r`n")
@@ -634,9 +655,19 @@ $repairButton.Add_Click({
   }
 
   try {
-    $detailBox.Text = Invoke-Repair
+    $resultText = Invoke-Repair
+    $detailBox.Text = $resultText
     $items = @(Get-PluginStatus)
     Update-StatusView $items
+    
+    if ($resultText -notmatch "维修未执行") {
+      [System.Windows.Forms.MessageBox]::Show(
+        "修复执行完毕！`r`n`r`n请查看下方日志确认执行结果，然后可以重新启动 Codex 检查插件是否恢复正常。",
+        '修复完成',
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information
+      ) | Out-Null
+    }
   } catch {
     $summaryLabel.Text = '维修失败。常见原因是 Codex、浏览器或 extension-host 仍在占用插件目录。'
     $detailBox.Text = "维修失败：$($_.Exception.Message)`r`n`r`n请退出 Codex、浏览器后重试。"
